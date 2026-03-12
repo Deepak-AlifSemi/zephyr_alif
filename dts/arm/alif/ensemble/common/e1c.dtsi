@@ -114,6 +114,7 @@
 		min-bus-freq = <400000>;
 		power-delay-ms = <500>;
 		pinctrl-0 = <&pinctrl_sdmmc>;
+		reset-gpios = <&gpio7 0 GPIO_ACTIVE_HIGH>;
 		cd-gpios = <&gpio6 5 GPIO_ACTIVE_LOW>;
 		pinctrl-names = "default";
 		mmc {
