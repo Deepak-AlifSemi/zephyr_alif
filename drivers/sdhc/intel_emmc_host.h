@@ -36,6 +36,7 @@
 #define EMMC_HOST_BLOCK_GAP_LOC     3
 #define EMMC_HOST_BLOCK_GAP_MASK    0x01
 
+#define EMMC_HOST_ADMA_DESC_MAX_LEN   65536U
 #define EMMC_HOST_ADMA_BUFF_ADD_LOC   32
 #define EMMC_HOST_ADMA_BUFF_LEN_LOC   16
 #define EMMC_HOST_ADMA_BUFF_LINK_NEXT (0x3 << 4)
@@ -43,6 +44,8 @@
 #define EMMC_HOST_ADMA_INTR_EN        BIT(2)
 #define EMMC_HOST_ADMA_BUFF_LAST      BIT(1)
 #define EMMC_HOST_ADMA_BUFF_VALID     BIT(0)
+#define EMMC_HOST_ADMA_BUFF_XFER      BIT(5)
+#define EMMC_HOST_ADMA_VALID_ERR_MASK 0x7
 
 /* Bit Map and length details for Clock Control Register */
 #define EMMC_HOST_CLK_SDCLCK_FREQ_SEL_LOC       8

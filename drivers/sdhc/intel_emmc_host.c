@@ -432,25 +432,30 @@ static int emmc_dma_init(const struct device *dev, struct sdhc_data *data, bool 
 
 		/* Setup DMA transfer using ADMA2 */
 		memset(emmc->desc_table, 0, sizeof(emmc->desc_table));
+		uint32_t desc_idx = 0, desc_cnt;
+		uint64_t bytes_per_desc, xfer_bytes, remaining_bytes;
 
-#if defined(CONFIG_INTEL_EMMC_HOST_ADMA_DESC_SIZE)
-		__ASSERT_NO_MSG(data->blocks < CONFIG_INTEL_EMMC_HOST_ADMA_DESC_SIZE);
-#endif
-		for (int i = 0; i < data->blocks; i++) {
-			emmc->desc_table[i] = buff << EMMC_HOST_ADMA_BUFF_ADD_LOC;
-			emmc->desc_table[i] |= data->block_size << EMMC_HOST_ADMA_BUFF_LEN_LOC;
+		remaining_bytes = xfer_bytes = data->blocks * data->block_size;
+		desc_cnt = (xfer_bytes + EMMC_HOST_ADMA_DESC_MAX_LEN - 1) /
+					EMMC_HOST_ADMA_DESC_MAX_LEN;
 
-			if (i == (data->blocks - 1u)) {
-				emmc->desc_table[i] |= EMMC_HOST_ADMA_BUFF_LINK_LAST;
-				emmc->desc_table[i] |= EMMC_HOST_ADMA_INTR_EN;
-				emmc->desc_table[i] |= EMMC_HOST_ADMA_BUFF_LAST;
-			} else {
-				emmc->desc_table[i] |= EMMC_HOST_ADMA_BUFF_LINK_NEXT;
-			}
-			emmc->desc_table[i] |= EMMC_HOST_ADMA_BUFF_VALID;
-			buff += data->block_size;
-			LOG_DBG("desc_table:%llx", emmc->desc_table[i]);
-		}
+		__ASSERT((desc_cnt) <= ADMA_DESC_SIZE,
+				"%s", "Invalid ADMA size Req\n");
+
+		do {
+			bytes_per_desc = MIN(remaining_bytes, EMMC_HOST_ADMA_DESC_MAX_LEN);
+			remaining_bytes -= bytes_per_desc;
+
+			emmc->desc_table[desc_idx] =
+					(((uint64_t)buff + (desc_idx * EMMC_HOST_ADMA_DESC_MAX_LEN))
+					<< EMMC_HOST_ADMA_BUFF_ADD_LOC);
+			emmc->desc_table[desc_idx] |=
+				((uint64_t)bytes_per_desc << EMMC_HOST_ADMA_BUFF_LEN_LOC);
+			emmc->desc_table[desc_idx] |=
+				(EMMC_HOST_ADMA_BUFF_XFER |	EMMC_HOST_ADMA_BUFF_VALID);
+		} while (++desc_idx < desc_cnt);
+
+		emmc->desc_table[desc_idx - 1] |= EMMC_HOST_ADMA_BUFF_LAST;
 
 #if defined(CONFIG_CACHE_MANAGEMENT)
 		sys_cache_data_flush_range(&emmc->desc_table[0], sizeof(emmc->desc_table));
@@ -1259,28 +1264,29 @@ static void emmc_isr(const struct device *dev)
 {
 	struct emmc_data *emmc = dev->data;
 	volatile struct emmc_reg *regs = (struct emmc_reg *)DEVICE_MMIO_GET(dev);
+	uint16_t normal_int_stat = regs->normal_int_stat;
 
-	if (regs->normal_int_stat & EMMC_HOST_CMD_COMPLETE) {
+	if (normal_int_stat & EMMC_HOST_CMD_COMPLETE) {
 		regs->normal_int_stat |= EMMC_HOST_CMD_COMPLETE;
 		k_event_post(&emmc->irq_event, EMMC_HOST_CMD_COMPLETE);
 	}
 
-	if (regs->normal_int_stat & EMMC_HOST_XFER_COMPLETE) {
+	if (normal_int_stat & EMMC_HOST_XFER_COMPLETE) {
 		regs->normal_int_stat |= EMMC_HOST_XFER_COMPLETE;
 		k_event_post(&emmc->irq_event, EMMC_HOST_XFER_COMPLETE);
 	}
 
-	if (regs->normal_int_stat & EMMC_HOST_DMA_INTR) {
+	if (normal_int_stat & EMMC_HOST_DMA_INTR) {
 		regs->normal_int_stat |= EMMC_HOST_DMA_INTR;
 		k_event_post(&emmc->irq_event, EMMC_HOST_DMA_INTR);
 	}
 
-	if (regs->normal_int_stat & EMMC_HOST_BUF_WR_READY) {
+	if (normal_int_stat & EMMC_HOST_BUF_WR_READY) {
 		regs->normal_int_stat |= EMMC_HOST_BUF_WR_READY;
 		k_event_post(&emmc->irq_event, EMMC_HOST_BUF_WR_READY);
 	}
 
-	if (regs->normal_int_stat & EMMC_HOST_BUF_RD_READY) {
+	if (normal_int_stat & EMMC_HOST_BUF_RD_READY) {
 		regs->normal_int_stat |= EMMC_HOST_BUF_RD_READY;
 		k_event_post(&emmc->irq_event, EMMC_HOST_BUF_RD_READY);
 	}
@@ -1300,7 +1306,7 @@ static void emmc_isr(const struct device *dev)
 		regs->normal_int_stat |= regs->normal_int_stat;
 	}
 
-	if (regs->adma_err_stat) {
+	if (regs->adma_err_stat & EMMC_HOST_ADMA_VALID_ERR_MASK) {
 		LOG_ERR("adma err:%x", regs->adma_err_stat);
 	}
 }
