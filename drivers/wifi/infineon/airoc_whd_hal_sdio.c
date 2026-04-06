@@ -44,7 +44,7 @@ int airoc_wifi_init_primary(const struct device *dev, whd_interface_t *interface
 
 	whd_sdio_config_t whd_sdio_config = {
 		.sdio_1bit_mode = WHD_FALSE,
-		.high_speed_sdio_clock = WHD_FALSE,
+		.high_speed_sdio_clock = WHD_TRUE,
 	};
 
 #if DT_INST_NODE_HAS_PROP(0, wifi_host_wake_gpios)
