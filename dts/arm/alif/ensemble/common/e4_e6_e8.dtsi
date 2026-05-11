@@ -5,14 +5,15 @@
 
 #include "e3_e5_e7.dtsi"
 
-/* sdhc reset pins */
-&sdhc {
-	reset-gpios = <&gpio14 7 GPIO_ACTIVE_HIGH>;
-};
-
 &mipi_dsi {
 	cam-disp-mux-gpios = <&gpio14 2 GPIO_ACTIVE_HIGH>;
 };
+
+&sdhc {
+    vmmc-supply = <&sd_pwr>;
+    vqmmc-supply = <&sd_vsel>;
+};
+
 
 &i2c0 {
 	clocks = <&clockctrl ALIF_I2C0_GATED_CLK>;
@@ -46,6 +47,23 @@
 		secure-enable;
 		privilege-enable;
 		status = "disabled";
+	};
+
+	sd_pwr: regulator-sd-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "sd-pwr";
+		enable-gpios = <&gpio14 7 GPIO_ACTIVE_HIGH>;
+		startup-delay-us = <2000>;
+	};
+
+	sd_vsel: regulator-sd-vsel {
+		compatible = "regulator-gpio";
+		regulator-name = "sd-vsel";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&gpio6 3 GPIO_ACTIVE_HIGH>;
+		states = <1800000 0>,
+				<3300000 1>;
 	};
 
 	gpio16: gpio@4300a000 {
